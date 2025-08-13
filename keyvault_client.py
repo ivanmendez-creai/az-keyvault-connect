@@ -197,6 +197,70 @@ class AzureKeyVaultClient:
         for secret_name in secret_names:
             results[secret_name] = self.get_secret(secret_name)
         return results
+    
+    def get_secrets_by_prefix(self, prefix: str) -> Dict[str, Optional[str]]:
+        """
+        Get all secrets that start with a specific prefix (letters before first "-")
+        
+        Args:
+            prefix: The prefix to filter secrets by (e.g., "AI" for "AI-something")
+            
+        Returns:
+            Dictionary mapping secret names to their values
+        """
+        try:
+            all_secrets = self.list_secrets()
+            matching_secrets = []
+            
+            for secret_name in all_secrets:
+                # Check if secret name starts with the prefix followed by "-"
+                if secret_name.startswith(f"{prefix}-"):
+                    matching_secrets.append(secret_name)
+            
+            if not matching_secrets:
+                print(f"No secrets found with prefix '{prefix}-'")
+                return {}
+            
+            print(f"Found {len(matching_secrets)} secrets with prefix '{prefix}-':")
+            for secret in matching_secrets:
+                print(f"  - {secret}")
+            
+            # Get the values for all matching secrets
+            return self.get_multiple_secrets(matching_secrets)
+            
+        except Exception as e:
+            print(f"Error getting secrets by prefix '{prefix}': {e}")
+            return {}
+    
+    def save_secrets_to_env_file(self, secrets: Dict[str, Optional[str]], filename: str) -> bool:
+        """
+        Save secrets to a .env file
+        
+        Args:
+            secrets: Dictionary of secret names and values
+            filename: Name of the file to save (without .env extension)
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Ensure filename ends with .env
+            if not filename.endswith('.env'):
+                filename += '.env'
+            
+            with open(filename, 'w') as f:
+                for secret_name, secret_value in secrets.items():
+                    if secret_value is not None:
+                        # Convert secret name to uppercase for .env format
+                        env_var_name = secret_name.upper().replace('-', '_')
+                        f.write(f"{env_var_name}={secret_value}\n")
+            
+            print(f"✓ Secrets saved to {filename}")
+            return True
+            
+        except Exception as e:
+            print(f"Error saving secrets to {filename}: {e}")
+            return False
 
 def main():
     """Main function for command-line usage"""
@@ -207,6 +271,8 @@ def main():
         print("  python keyvault_client.py set <secret_name> <secret_value>")
         print("  python keyvault_client.py list")
         print("  python keyvault_client.py get-multiple <secret1> <secret2> ...")
+        print("  python keyvault_client.py get-prefix <prefix>")
+        print("  python keyvault_client.py get-prefix-save <prefix>")
         print("\nEnvironment variables:")
         print("  DISABLE_SSL_VERIFY=true  # Disable SSL verification (testing only)")
         sys.exit(1)
@@ -253,6 +319,28 @@ def main():
                     print(f"{name}: {value}")
                 else:
                     print(f"{name}: [NOT FOUND]")
+        
+        elif command == "get-prefix" and len(sys.argv) >= 3:
+            prefix = sys.argv[2]
+            secrets_by_prefix = client.get_secrets_by_prefix(prefix)
+            if secrets_by_prefix:
+                print(f"Secrets with prefix '{prefix}-':")
+                for name, value in secrets_by_prefix.items():
+                    if value:
+                        print(f"  - {name}: {value}")
+                    else:
+                        print(f"  - {name}: [NOT FOUND]")
+            else:
+                print(f"No secrets found with prefix '{prefix}-'")
+        
+        elif command == "get-prefix-save" and len(sys.argv) >= 3:
+            prefix = sys.argv[2]
+            secrets_by_prefix = client.get_secrets_by_prefix(prefix)
+            if secrets_by_prefix:
+                filename = f"{prefix}.env"
+                client.save_secrets_to_env_file(secrets_by_prefix, filename)
+            else:
+                print(f"No secrets found with prefix '{prefix}-' to save.")
         
         else:
             print("Invalid command or missing arguments")

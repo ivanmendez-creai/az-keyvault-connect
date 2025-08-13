@@ -94,6 +94,12 @@ python keyvault_client.py get my-secret-name
 # Get multiple secrets
 python keyvault_client.py get-multiple secret1 secret2 secret3
 
+# Get secrets by prefix (e.g., all secrets starting with "AI-")
+python keyvault_client.py get-prefix AI
+
+# Get secrets by prefix and save to .env file (e.g., saves to AI.env)
+python keyvault_client.py get-prefix-save AI
+
 # Set a secret (No tested)
 python keyvault_client.py set my-secret-name "my-secret-value"
 ```
@@ -125,6 +131,61 @@ print(f"Available secrets: {secrets}")
 results = client.get_multiple_secrets(["secret1", "secret2", "secret3"])
 for name, value in results.items():
     print(f"{name}: {value}")
+
+# Get secrets by prefix (e.g., all secrets starting with "AI-")
+secrets_by_prefix = client.get_secrets_by_prefix("AI")
+for name, value in secrets_by_prefix.items():
+    print(f"{name}: {value}")
+
+# Save secrets to .env file
+client.save_secrets_to_env_file(secrets_by_prefix, "AI.env")
+```
+
+## Prefix-Based Secret Management
+
+The client provides powerful prefix-based secret management capabilities for organizing and retrieving related secrets:
+
+### How It Works
+
+Secrets are filtered by their prefix (letters before the first "-"). For example:
+- `AI-api-key` → prefix: `AI`
+- `AI-model-name` → prefix: `AI` 
+- `DB-connection-string` → prefix: `DB`
+- `DB-username` → prefix: `DB`
+
+### Usage Examples
+
+```bash
+# Get all secrets with "AI-" prefix and display them
+python keyvault_client.py get-prefix AI
+
+# Get all secrets with "AI-" prefix and save them to AI.env file
+python keyvault_client.py get-prefix-save AI
+```
+
+### Generated .env File Format
+
+When using `get-prefix-save`, the secrets are saved to a `.env` file with the following format:
+
+```env
+# AI.env file example
+AI_API_KEY=your_api_key_here
+AI_MODEL_NAME=gpt-4
+AI_ENDPOINT=https://api.openai.com/v1
+AI_ORGANIZATION=your_org_id
+```
+
+The secret names are automatically converted to uppercase and hyphens are replaced with underscores for proper environment variable format.
+
+### Python API for Prefix Operations
+
+```python
+# Get all secrets with a specific prefix
+secrets = client.get_secrets_by_prefix("AI")
+print(f"Found {len(secrets)} AI-related secrets")
+
+# Save prefix-based secrets to a file
+client.save_secrets_to_env_file(secrets, "AI.env")
 ```
 
 ## Configuration Options
